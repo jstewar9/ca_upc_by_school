@@ -13,17 +13,54 @@ gc()
 
 # Install/load packages
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(tidyverse, tidyr, dplyr, zip, rvest)
+pacman::p_load(tidyverse, tidyr, dplyr, zip, rvest, xlsx)
 
 # Url for UPC data files
-upc_url <- "https://www.cde.ca.gov/ds/sd/sd/filescupc.asp"
+source_url <- "https://www.cde.ca.gov/ds/sd/sd/filescupc.asp"
 
 # Load page
-page <- read_html(upc_url)
+page <- read_html(source_url)
 
+df_upc_links <- page %>%
+  # Finde table nodes
+  html_nodes('[class="table-responsive"]') %>%
+  
+  # Find rows of tables
+  html_nodes('td') %>%
+  
+  # Find links
+  html_nodes('a') %>%
+  
+  # Find urls
+  html_attr('href') %>%
+  
+  # Convert to tibble for filtering
+  enframe(name = NULL, value = "upc_link") %>%
+  
+  # .asp links are not data files, keep only links without .asp
+  filter(!grepl(".asp", upc_link)) %>%
+  
+  arrange(upc_link) %>%
+  
+  # Append full url, create destination file name
+  mutate(upc_link = paste0("https://www.cde.ca.gov/ds/sd/sd/", upc_link),
+         upc_filename = substring(upc_link,
+                                  # Find starting position of file name
+                                  str_locate(upc_link, "documents/")[,2] + 1,
+                                  # Find ending position of string
+                                  str_length(upc_link)))
 
-page_data <- page %>%
+# Download data files
+for (i in 1:length(df_upc_links$upc_link)){
   
-  html_nodes('.centeredText') %>%
+  download.file(df_upc_links$upc_link[i],
+                df_upc_links$upc_filename[i])
+}
   
-  html_text
+# Create list to store each file into a data frame
+l_dataframes <- list()
+
+# Import each file into a data frame
+for (i in 1:length(df_upc_links$upc_filename)) {
+  
+}
